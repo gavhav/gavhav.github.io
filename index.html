@@ -1,193 +1,201 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
   <meta charset="UTF-8" />
   <title>Garvin's Kitten</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: linear-gradient(to bottom, #b3e5fc, #ffffff);
+      padding: 0;
+      background: linear-gradient(#001133, #003366);
+      overflow: hidden;
       font-family: 'Segoe UI', sans-serif;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    #gameCanvas {
+      display: block;
+      margin: auto;
+      background: transparent;
+    }
+    #ui {
+      position: absolute;
+      top: 10px;
+      width: 100%;
       text-align: center;
-    }
-    h1 {
-      margin-top: 20px;
-      color: #4a148c;
-    }
-    canvas {
-      border-radius: 10px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      background: #d0f0fd;
-      margin-top: 10px;
+      color: white;
     }
     #score, #highScore {
       font-size: 20px;
-      margin: 10px;
-      color: #333;
     }
     #startBtn {
-      margin-top: 10px;
+      background: #ffca28;
+      color: #000;
       padding: 10px 20px;
-      font-size: 18px;
-      background-color: #8e24aa;
-      color: white;
       border: none;
       border-radius: 6px;
+      font-size: 18px;
       cursor: pointer;
     }
     #startBtn:hover {
-      background-color: #6a1b9a;
+      background: #f9a825;
     }
   </style>
 </head>
 <body>
-  <h1>Garvin's Kitten</h1>
-  <div id="score">Score: 0</div>
-  <div id="highScore">High Score: 0</div>
+  <div id="ui">
+    <div id="score">Score: 0</div>
+    <div id="highScore">High Score: 0</div>
+    <button id="startBtn">Start Game</button>
+  </div>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <button id="startBtn">Start Game</button>
-
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-    const scoreDisplay = document.getElementById('score');
-    const highScoreDisplay = document.getElementById('highScore');
-    let highScore = localStorage.getItem('kittenHighScore') || 0;
+    const scoreEl = document.getElementById('score');
+    const highScoreEl = document.getElementById('highScore');
+    const startBtn = document.getElementById('startBtn');let highScore = localStorage.getItem('kittenHighScore') || 0;
+let gameStarted = false;
+let score = 0, frame = 0;
+let pipes = [];
 
-    const kitten = {
-      x: 80,
-      y: 150,
-      size: 32,
-      gravity: 0.4,
-      lift: -8,
-      velocity: 0
-    };
+const kitten = {
+  x: 80,
+  y: 200,
+  r: 20,
+  gravity: 0.3,
+  lift: -7.5,
+  velocity: 0
+};
 
-    const pipeWidth = 60;
-    const pipeGap = 140;
-    let pipes = [];
-    let score = 0;
-    let frame = 0;
-    let gameStarted = false;
-    let gameOver = false;
+function drawKitten() {
+  ctx.fillStyle = '#8B4513';
+  ctx.beginPath();
+  ctx.arc(kitten.x, kitten.y, kitten.r, 0, Math.PI * 2);
+  ctx.fill();
 
-    function resetGame() {
-      kitten.y = 150;
-      kitten.velocity = 0;
-      pipes = [];
-      score = 0;
-      frame = 0;
-      gameOver = false;
-      updateScore();
+  // Eyes
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.arc(kitten.x - 7, kitten.y - 5, 3, 0, Math.PI * 2);
+  ctx.arc(kitten.x + 7, kitten.y - 5, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mouth
+  ctx.beginPath();
+  ctx.arc(kitten.x, kitten.y + 4, 5, 0, Math.PI);
+  ctx.stroke();
+
+  // Wings
+  ctx.fillStyle = '#FFF';
+  ctx.beginPath();
+  ctx.moveTo(kitten.x - 20, kitten.y);
+  ctx.lineTo(kitten.x - 35, kitten.y - 10);
+  ctx.lineTo(kitten.x - 35, kitten.y + 10);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(kitten.x + 20, kitten.y);
+  ctx.lineTo(kitten.x + 35, kitten.y - 10);
+  ctx.lineTo(kitten.x + 35, kitten.y + 10);
+  ctx.fill();
+}
+
+function drawPipe(pipe) {
+  const color = '#FFD700';
+  ctx.fillStyle = color;
+  ctx.fillRect(pipe.x, 0, pipe.w, pipe.top);
+  ctx.fillRect(pipe.x, pipe.top + pipe.gap, pipe.w, canvas.height);
+
+  // Pipe cap
+  ctx.fillStyle = '#FFA000';
+  ctx.fillRect(pipe.x - 5, pipe.top - 10, pipe.w + 10, 10);
+  ctx.fillRect(pipe.x - 5, pipe.top + pipe.gap, pipe.w + 10, 10);
+}
+
+function drawPipes() {
+  pipes.forEach(drawPipe);
+}
+
+function updatePipes() {
+  if (frame % 90 === 0) {
+    const gap = 150;
+    const top = Math.random() * (canvas.height - gap - 100) + 30;
+    pipes.push({ x: canvas.width, top, w: 60, gap });
+  }
+  pipes.forEach(p => p.x -= 3);
+  if (pipes.length && pipes[0].x < -60) {
+    pipes.shift();
+    score++;
+    if (score > highScore) {
+      highScore = score;
+      localStorage.setItem('kittenHighScore', highScore);
     }
+  }
+}
 
-    function updateScore() {
-      scoreDisplay.textContent = `Score: ${score}`;
-      highScoreDisplay.textContent = `High Score: ${highScore}`;
-    }
+function checkCollision() {
+  if (kitten.y + kitten.r > canvas.height || kitten.y - kitten.r < 0) return true;
+  return pipes.some(p =>
+    kitten.x + kitten.r > p.x &&
+    kitten.x - kitten.r < p.x + p.w &&
+    (kitten.y - kitten.r < p.top || kitten.y + kitten.r > p.top + p.gap)
+  );
+}
 
-    function drawKitten() {
-      ctx.fillStyle = '#a0522d';
-      ctx.beginPath();
-      ctx.arc(kitten.x, kitten.y, kitten.size / 2, 0, Math.PI * 2);
-      ctx.fill();
-      // wings
-      ctx.fillStyle = '#d2b48c';
-      ctx.beginPath();
-      ctx.moveTo(kitten.x - 20, kitten.y);
-      ctx.lineTo(kitten.x - 30, kitten.y - 10);
-      ctx.lineTo(kitten.x - 30, kitten.y + 10);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(kitten.x + 20, kitten.y);
-      ctx.lineTo(kitten.x + 30, kitten.y - 10);
-      ctx.lineTo(kitten.x + 30, kitten.y + 10);
-      ctx.fill();
-    }
+function updateUI() {
+  scoreEl.textContent = `Score: ${score}`;
+  highScoreEl.textContent = `High Score: ${highScore}`;
+}
 
-    function drawPipes() {
-      ctx.fillStyle = '#388e3c';
-      pipes.forEach(pipe => {
-        ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
-        ctx.fillRect(pipe.x, pipe.topHeight + pipeGap, pipeWidth, canvas.height);
-      });
-    }
+function resetGame() {
+  kitten.y = 200;
+  kitten.velocity = 0;
+  score = 0;
+  frame = 0;
+  pipes = [];
+  updateUI();
+}
 
-    function updatePipes() {
-      if (frame % 90 === 0) {
-        let topHeight = Math.floor(Math.random() * (canvas.height - pipeGap - 100)) + 40;
-        pipes.push({ x: canvas.width, topHeight });
-      }
-      pipes.forEach(pipe => pipe.x -= 3);
-      if (pipes.length && pipes[0].x < -pipeWidth) {
-        pipes.shift();
-        score++;
-        if (score > highScore) {
-          highScore = score;
-          localStorage.setItem('kittenHighScore', highScore);
-        }
-        updateScore();
-      }
-    }
+function loop() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function checkCollision() {
-      if (kitten.y + kitten.size/2 > canvas.height || kitten.y - kitten.size/2 < 0) {
-        return true;
-      }
-      for (let pipe of pipes) {
-        if (
-          kitten.x + kitten.size/2 > pipe.x &&
-          kitten.x - kitten.size/2 < pipe.x + pipeWidth &&
-          (kitten.y - kitten.size/2 < pipe.topHeight ||
-           kitten.y + kitten.size/2 > pipe.topHeight + pipeGap)
-        ) {
-          return true;
-        }
-      }
-      return false;
-    }
+  kitten.velocity += kitten.gravity;
+  kitten.y += kitten.velocity;
 
-    function gameLoop() {
-      if (!gameStarted) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+  updatePipes();
+  drawPipes();
+  drawKitten();
 
-      kitten.velocity += kitten.gravity;
-      kitten.y += kitten.velocity;
+  if (checkCollision()) {
+    gameStarted = false;
+    startBtn.textContent = 'Restart Game';
+  }
 
-      updatePipes();
-      drawPipes();
-      drawKitten();
+  updateUI();
+  frame++;
+  if (gameStarted) requestAnimationFrame(loop);
+}
 
-      if (checkCollision()) {
-        gameStarted = false;
-        gameOver = true;
-        document.getElementById('startBtn').textContent = 'Restart Game';
-      }
+function jump() {
+  if (gameStarted) kitten.velocity = kitten.lift;
+}
 
-      if (!gameOver) {
-        frame++;
-        requestAnimationFrame(gameLoop);
-      }
-    }
+startBtn.addEventListener('click', () => {
+  resetGame();
+  gameStarted = true;
+  startBtn.textContent = 'Playing...';
+  loop();
+});
 
-    document.addEventListener('keydown', e => {
-      if ((e.code === 'Space' || e.code === 'ArrowUp') && gameStarted) {
-        kitten.velocity = kitten.lift;
-      }
-    });
+window.addEventListener('touchstart', jump);
+window.addEventListener('mousedown', jump);
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' || e.code === 'ArrowUp') jump();
+});
 
-    document.addEventListener('mousedown', () => {
-      if (gameStarted) kitten.velocity = kitten.lift;
-    });
+updateUI();
 
-    document.getElementById('startBtn').addEventListener('click', () => {
-      resetGame();
-      gameStarted = true;
-      document.getElementById('startBtn').textContent = 'Playing...';
-      gameLoop();
-    });
-
-    updateScore();
   </script>
 </body>
 </html>
