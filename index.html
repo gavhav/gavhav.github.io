@@ -1,26 +1,203 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Goon Cave</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flappy Bird Clone</title>
+<style>
+  body {
+    margin: 0;
+    background: linear-gradient(to bottom, #87ceeb, #fff);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    user-select: none;
+  }
+  h1 {
+    margin: 20px 0 0 0;
+    color: #333;
+  }
+  canvas {
+    background: #70c5ce;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    margin-top: 20px;
+  }
+  #score {
+    margin: 15px;
+    font-size: 24px;
+    font-weight: bold;
+    color: #444;
+  }
+  #startBtn {
+    background-color: #28a745;
+    border: none;
+    color: white;
+    font-size: 18px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  #startBtn:hover {
+    background-color: #218838;
+  }
+</style>
 </head>
-<body style="background-color:black; color:blue; text-align:center;">
-  <h1>get fucked retard</h1>
-  <p style="text-align: left; font-size: 13px;">A few summers ago I went for a bike ride around midnight with a friend. We went our separate ways at the end of the evening and I had about two blocks to ride back by myself. 
+<body>
 
-Because of construction I had to ride on the sidewalk but the streets were dead but it wasn't a problem until right where I was about to turn left onto my street. There was this man walking by himself, maybe 40s, a little scruffy but not homeless. 
+<h1>Flappy Bird Clone</h1>
+<div id="score">Score: 0</div>
+<canvas id="gameCanvas" width="400" height="600"></canvas>
+<button id="startBtn">Start Game</button>
 
-The side walk was narrow and I didn't want to freak him out so when I got about six feet behind him I said "hey behind you And he turned around and gave me this super angry look. 
+<script>
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
 
-I turned down me street and he started to follow me, literally screaming about how I was a fucking cunt and he was going to kill me and all that. I live right off the corner and I didn't want him to figure that out so I decided to do another loop around the block. That's not the scary part.
+  const bird = {
+    x: 80,
+    y: 150,
+    width: 34,
+    height: 24,
+    gravity: 0.6,
+    lift: -10,
+    velocity: 0
+  };
 
-The scary part is that when I looped back around and looked down the street I saw him *standing on my fucking front stoop* staring out at the street like the motherfucker KNEW I lived there. He saw me ride by again but he didn't say anything.
+  const pipeWidth = 60;
+  const pipeGap = 150;
+  let pipes = [];
+  let frame = 0;
+  let score = 0;
+  let gameOver = false;
+  let gameStarted = false;
 
-I ended up going back to the friends, but my bike got stolen from the alleyway by the house two days later.  
-	
- the guy in question was definitely not actually homeless. We have a large population of mentally ill in that area unfortunately (downtown of a medium sized city), so if I didn't think the sidewalk was too narrow to pass otherwise I wouldn't have disturbed him. Half the scary part was that he looked pretty much completely normal for my area. That being said I ended up texting my mom and she made the decision not to notify law enforcement until my bike was stolen.  </p>
+  function resetGame() {
+    bird.y = 150;
+    bird.velocity = 0;
+    pipes = [];
+    frame = 0;
+    score = 0;
+    gameOver = false;
+    updateScore(0);
+  }
+
+  function updateScore(val) {
+    document.getElementById('score').textContent = 'Score: ' + val;
+  }
+
+  function drawBird() {
+    ctx.fillStyle = '#ff0';
+    ctx.strokeStyle = '#cc0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(bird.x, bird.y, bird.width/2, bird.height/2, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Eye
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(bird.x + 8, bird.y - 5, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawPipes() {
+    ctx.fillStyle = '#228B22';
+    pipes.forEach(pipe => {
+      // Top pipe
+      ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
+      // Bottom pipe
+      ctx.fillRect(pipe.x, pipe.topHeight + pipeGap, pipeWidth, canvas.height - pipe.topHeight - pipeGap);
+    });
+  }
+
+  function updatePipes() {
+    if (frame % 90 === 0) {
+      // Create new pipe pair
+      let topHeight = Math.floor(Math.random() * (canvas.height - pipeGap - 120)) + 40;
+      pipes.push({x: canvas.width, topHeight: topHeight});
+    }
+
+    pipes.forEach(pipe => {
+      pipe.x -= 3;
+    });
+
+    // Remove pipes off screen and update score
+    if (pipes.length && pipes[0].x < -pipeWidth) {
+      pipes.shift();
+      score++;
+      updateScore(score);
+    }
+  }
+
+  function checkCollision() {
+    // Floor & ceiling
+    if (bird.y + bird.height/2 >= canvas.height || bird.y - bird.height/2 <= 0) {
+      return true;
+    }
+
+    // Pipes
+    for (let pipe of pipes) {
+      if (
+        bird.x + bird.width/2 > pipe.x &&
+        bird.x - bird.width/2 < pipe.x + pipeWidth &&
+        (bird.y - bird.height/2 < pipe.topHeight ||
+         bird.y + bird.height/2 > pipe.topHeight + pipeGap)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function gameLoop() {
+    if (!gameStarted) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+
+    updatePipes();
+
+    drawPipes();
+    drawBird();
+
+    if (checkCollision()) {
+      gameOver = true;
+      gameStarted = false;
+      document.getElementById('startBtn').textContent = 'Restart Game';
+    }
+
+    if (!gameOver) {
+      frame++;
+      requestAnimationFrame(gameLoop);
+    }
+  }
+
+  // Controls
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp') {
+      if (!gameStarted) return;
+      bird.velocity = bird.lift;
+    }
+  });
+
+  window.addEventListener('mousedown', () => {
+    if (!gameStarted) return;
+    bird.velocity = bird.lift;
+  });
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    resetGame();
+    gameStarted = true;
+    document.getElementById('startBtn').textContent = 'Playing...';
+    gameLoop();
+  });
+</script>
+
 </body>
 </html>
-<a href="https://m.youtube.com/watch?v=dQw4w9WgXcQ" target="spinning-cat-spin.gif">
-<img src="spinning-cat-spin.gif" alt="RETARDED cat" />
-<a/>
-
